@@ -3,7 +3,8 @@ let jiraApi = {
   issuetype: {api: "/rest/api/2/issuetype", type: "GET"},
   components: {api: "/rest/api/2/component/", type: "GET"},
   issue: {api: "/rest/api/2/issue/", type: "POST"},
-  customFieldOption: {api: "/rest/api/2/customFieldOption/", type: "GET"}
+  customFieldOption: {api: "/rest/api/2/customFieldOption/", type: "GET"},
+  getFields: {api: "/rest/api/2/field", type: "GET"}
 }
 
 let jiraHost = "https://jira.cvte.com"
@@ -43,6 +44,7 @@ class FormView {
         item.onCreateIssueClick(pars);
       })
     })
+
   }
 
   addListener(observer) {
@@ -53,15 +55,22 @@ class FormView {
     let len = projectList.length
     $('#projectList').empty();
     for(let index = 0; index < len; index++){
-      $('#projectList').append('<a class="dropdown-item" href="#">'+projectList[index].name+'</a>');
+      $('#projectList').append('<a class="dropdown-item project-list">'+projectList[index].name+'</a>');
     }
+    $('.project-list').on('click', (event)=>{
+      let projectName = event.target.innerText
+      $('#project').val(projectName)
+      this.observers.forEach((item, index, array)=>{
+        item.onProjectChangged(projectName)
+      })
+    })
   }
 
   updateIssueTypeList(issueTypeList) {
     let len = issueTypeList.length
     $('#issueTypeList').empty();
     for(let index = 0; index < len; index++){
-      $('#issueTypeList').append('<a class="dropdown-item" href="#">'+issueTypeList[index].name+'</a>');
+      $('#issueTypeList').append('<a class="dropdown-item issue-type-list">'+issueTypeList[index].name+'</a>');
     }
   }
 
@@ -69,7 +78,7 @@ class FormView {
     let len = componentsList.length
     $('#componentsList').empty();
     for(let index = 0; index < len; index++){
-      $('#componentsList').append('<a class="dropdown-item" href="#">'+componentsList[index].name+'</a>');
+      $('#componentsList').append('<a class="dropdown-item components-list">'+componentsList[index].name+'</a>');
     }
   }
 
@@ -77,7 +86,7 @@ class FormView {
     let len = resumeTypeList.length
     $('#resumeTypeList').empty();
     for(let index = 0; index < len; index++){
-      $('#resumeTypeList').append('<a class="dropdown-item" href="#">'+resumeTypeList[index].name+'</a>');
+      $('#resumeTypeList').append('<a class="dropdown-item resume-type-list">'+resumeTypeList[index].name+'</a>');
     }
   }
 
@@ -85,7 +94,7 @@ class FormView {
     let len = resumeSourceList.length
     $('#resumeSourceList').empty();
     for(let index = 0; index < len; index++){
-      $('#resumeSourceList').append('<a class="dropdown-item" href="#">'+resumeSourceList[index].name+'</a>');
+      $('#resumeSourceList').append('<a class="dropdown-item resume-source-list">'+resumeSourceList[index].name+'</a>');
     }
   }
 }
@@ -104,6 +113,10 @@ class FormController {
         this.issueTypeList = data
         this.formView.updateIssueTypeList(data)
       })
+    this.formModel.getCustomFields()
+      .then((data)=>{
+        console.log(data)
+      });
     this.formModel.getResumeType()
       .then((data)=>{
         this.resumeTypeList = data
@@ -116,32 +129,37 @@ class FormController {
       })
   }
 
-  getProjectKey(projectName) {
-
+  getFromListByName(input_list, name) {
+    let len = input_list.length
+    for(let index = 0; index < len; ++index) {
+      if (input_list[index].name == name)
+        return input_list[index]
+    }
   }
 
-  getIssueTypeId(projectName) {
-
+  getComponentsIdArray(componentName) {
+    this.componentsList.forEach((item, index, array)=>{
+      if (item.name == componentName)
+        return item.id
+    })
   }
 
-  getComponentsIdArray(componentsArray) {
-
-  }
-
-  getResumeTypeId(resumeType) {
-
-  }
-
-  getResumeSourceId(resumeSource) {
-
+  onProjectChangged(projectName) {
+    //update components
+    let projectElem = this.getFromListByName(this.projectList, projectName)
+    this.formModel.getComponents(projectElem.id)
+      .then((data)=>{
+        this.componentsList = data
+        this.formView.updateComponentsList(data)
+      })
   }
 
   onCreateIssueClick(pars){
-    projectKey = getProjectKey(pars.project)
-    issueTypeId = getIssueTypeId(pars.issueType)
+    projectKey = getFromListByName(this.projectList, pars.project).key
+    issueTypeId = getFromListByName(this.issueTypeList, pars.issueType).id
     componentsIdArray = getComponentsIdArray(pars.components)
-    resumeTypeId = getResumeTypeId(pars.resumeType)
-    resumeSourceId = getResumeSourceId(pars.resumeSource)
+    resumeTypeId = getFromListByName(this.resumeTypeList, pars.resumeType).id
+    resumeSourceId = getFromListByName(this.resumeSourceList, pars.resumeSource).id
     let requestData = {
       "fields":{
         "project":
@@ -170,7 +188,6 @@ class FormController {
       .catch((error)=>{
       })
   }
-
 }
 
 class FormModel {
@@ -200,10 +217,21 @@ class FormModel {
     return pm;
   }
 
-  getComponent(projectId) {
+  getComponents(projectId) {
     const pm = new Promise((resolve, reject) => {
-      this.jiraRequestManager.requestData(jiraHost+jiraApi.components.api+'/'+projectId, 
+      this.jiraRequestManager.requestData(jiraHost+jiraApi.components.api+'id='+projectId, 
         jiraApi.components.type, 
+        null, 
+        resolve, 
+        reject)
+    })
+    return pm;
+  }
+
+  getCustomFields() {
+    const pm = new Promise((resolve, reject) => {
+      this.jiraRequestManager.requestData(jiraHost+jiraApi.getFields.api+'?search=create',
+        jiraApi.getFields.type, 
         null, 
         resolve, 
         reject)
@@ -213,22 +241,23 @@ class FormModel {
 
   getResumeType() {
     const pm = new Promise((resolve, reject) => {
-      this.jiraRequestManager.requestData(jiraHost+jiraApi.customFieldOption.api+'/13206', 
-        jiraApi.customFieldOption.type, 
-        null, 
-        resolve, 
-        reject)
+      let result = [
+        {name: "内推", id: "14695"},
+        {name: "主动投递", id: "14696"},
+        {name: "简历搜索", id: "14697"},
+        {name: "其他", id: "14698"},
+      ]
+      resolve(result);
     })
     return pm;
   }
 
   getResumeSource() {
     const pm = new Promise((resolve, reject) => {
-      this.jiraRequestManager.requestData(jiraHost+jiraApi.customFieldOption.api+'/13207', 
-        jiraApi.customFieldOption.type, 
-        null, 
-        resolve, 
-        reject)
+      let result = [
+        {name: "BOSS 直聘", id: "14704"}
+      ]
+      resolve(result)
     })
     return pm;
   }
