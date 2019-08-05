@@ -1,0 +1,102 @@
+﻿<html>
+<head>
+  <link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+  <script src="../jquery/jquery-3.2.0.min.js"></script>
+  <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../bootstrap/js/bootstrap.min.js"></script>
+  <style>
+    body {
+      width: 520px;
+      height: 200px;
+    }
+    .align-left {
+      padding-right: 0px;
+    }
+    .date-input-padding{
+      padding-left: 7px;
+    }
+    .without-padding{
+      padding-right: 0px;
+      padding-left: 0px;
+    }
+    .align-middle{
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+  <form>
+    <div class="mb-3 mt-3 input-group">
+      <input type="text" class="form-control" aria-label="Amount (to the nearest dollar)" id="summary">
+      <div class="input-group-append">
+        <span class="input-group-text">主题</span>
+       </div>
+    </div> 
+
+    <div class="mb-3 input-group">
+      <input type="text" class="form-control" aria-label="Amount (to the nearest dollar)" id="assignee">
+      <div class="input-group-append">
+        <span class="input-group-text">经办人</span>
+       </div>
+    </div> 
+
+    <div class="input-group mb-3">
+      <input type="text" class="form-control" id="project">
+      <div class="input-group-append pre-scrollable">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" >项目</button>
+        <div class="dropdown-menu pre-scrollable" id=projectList>
+          <a class="dropdown-item" href="#">Action</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3 input-group">
+      <input type="text" class="form-control" id="issueType">
+      <div class="input-group-append">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" >问题类型</button>
+        <div class="dropdown-menu" id=issueTypeList>
+          <a class="dropdown-item" href="#">Action</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3 input-group">
+      <input type="text" class="form-control" aria-label="Text input with dropdown button" id="components">
+      <div class="input-group-append">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" >模块</button>
+        <div class="dropdown-menu" id=componentsList>
+          <a class="dropdown-item" href="#">Action</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3 input-group">
+      <input type="text" class="form-control" aria-label="Text input with dropdown button" id="resumeType">
+      <div class="input-group-append">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" >简历类型</button>
+        <div class="dropdown-menu" id=resumeTypeList>
+          <a class="dropdown-item" href="#">Action</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3 input-group">
+      <input type="text" class="form-control" aria-label="Text input with dropdown button" id="resumeSource">
+      <div class="input-group-append">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" >简历来源</button>
+        <div class="dropdown-menu" id=resumeSourceList>
+          <a class="dropdown-item" href="#">Action</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group"></div>
+      <button class = "btn btn-outline-primary" id="createIssue">创建</button>
+    </div>
+  </form>
+  </div>
+
+  <script src="../js/popup.js"></script>
+</body>
+</html>

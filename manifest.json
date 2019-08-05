@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "jira任务创建",
+  "version": "0.1.0",
+
+  "description": "auto-jira",
+
+  "icons": {
+    "16":  "./images/1.png",
+    "48": "./images/2.png",
+    "128": "./images/3.png"
+  },
+
+  "permissions": [
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "storage",
+    "https://jira.cvte.com/*"
+  ],
+
+  "browser_action": {
+    "default_title": "",
+    "default_popup": "./popup/popup.html"
+  },
+
+  "author": "walle",
+  "background": {
+    "scripts": ["./jquery/jquery-3.2.0.min.js", "./js/eventPage.js"]
+  },
+
+  "content_scripts": [
+  {
+    "matches": ["https://*/*"],
+    "js": ["./jquery/jquery-3.2.0.min.js", "./js/autorun.js"]
+  }
+  ]
+}
