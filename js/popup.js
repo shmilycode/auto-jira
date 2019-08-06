@@ -5,7 +5,8 @@ let jiraApi = {
   issue: {api: "/rest/api/2/issue/", type: "POST"},
   customFieldOption: {api: "/rest/api/2/customFieldOption/", type: "GET"},
   getFields: {api: "/rest/api/2/field", type: "GET"},
-  findUsers: {api: "/rest/api/2/user/assignable/multiProjectSearch", type: "GET"}
+  findUsers: {api: "/rest/api/2/user/assignable/multiProjectSearch", type: "GET"},
+  addIssueAttachment: {api: "/rest/api/2/issue/{issueIdOrKey}/attachments", type: "POST"}
 }
 
 let jiraHost = "https://jira.cvte.com"
@@ -30,6 +31,27 @@ class JiraRequestManager {
     $.ajax(requestContent);
   }
 
+  requestDataWithXSRF(api, type, data, success, error) {
+    var requestContent = {
+           timeout: 1000,
+           url: api,
+           type: type,
+      beforeSend: function(xhr){
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("X-Atlassian-Token", "no-check");
+      },
+      data: data,
+      success: function(data){
+        success(data);
+      },
+      error:function(XMLHttpRequest, textStatus, errorThrown){
+        error(XMLHttpRequest);
+      }
+    };
+    $.ajax(requestContent);
+
+  }
+
 }
 
 class FormView {
@@ -48,7 +70,8 @@ class FormView {
       let pars = {project: $('#project').val(), issueType: $('#issueType').val(),
                   summary: $('#summary').val(), components: componentsArray,
                   resumeType: $('#resumeType').val(), resumeSource: $('#resumeSource').val(),
-                  assignee: $('#assignee').val(), description: $('#description').val()}
+                  assignee: $('#assignee').val(), description: $('#description').val(),
+                  attachment: $('#inputFile').prop('files')[0]}
       this.observers.forEach((item, index, array) =>{
         item.onCreateIssueClick(pars)
           .then((result)=>{
@@ -71,6 +94,12 @@ class FormView {
       if ($('#project').val())
         this.notifyProjectChanged($('#project').val())
     })
+
+    $(".custom-file-input").on("change", function() {
+      var fileName = $(this).val().split("\\").pop();
+      $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
+//      this.CheckInputs();
+    });
   }
 
   initForm(data) {
@@ -91,7 +120,7 @@ class FormView {
   }
 
   CheckInputs() {
-    let elem = ['#project', '#summary', '#assignee', '#issueType', '#components', '#resumeType', '#resumeSource'];
+    let elem = ['#project', '#assignee', '#issueType', '#components', '#resumeType', '#resumeSource'];
     for (let i = 0; i < elem.length; i++) {
       if (!$(elem[i]).val()) {
         $(elem[i]).addClass('is-invalid')
@@ -225,10 +254,6 @@ class FormController {
         this.issueTypeList = data
         this.formView.updateIssueTypeList(data)
       })
-    this.formModel.getCustomFields()
-      .then((data)=>{
-        console.log(data)
-      });
     this.formModel.getResumeType()
       .then((data)=>{
         this.resumeTypeList = data
@@ -305,6 +330,7 @@ async onCreateIssueClick(pars){
     this.formView.updateAssigneeList(data)
   }
   let assigneeName = this.getUserName(pars.assignee).name
+  let attachment = pars.attachment
   let requestData = {
     "fields":{
       "project":
@@ -330,7 +356,8 @@ async onCreateIssueClick(pars){
   };
 
   this.storeAllSetting(pars)
-  let response = await this.formModel.submitCreateIssue(requestData)
+//  let issue = await this.formModel.submitCreateIssue(requestData)
+  let response = await this.formModel.uploadAttachment(attachment, "SWZP-5999")
   return response
 }
 
@@ -372,17 +399,6 @@ class FormModel {
       request = request.replace("\{projectIdOrKey\}", projectId)
       this.jiraRequestManager.requestData(request, 
         jiraApi.components.type, 
-        null, 
-        resolve, 
-        reject)
-    })
-    return pm;
-  }
-
-  getCustomFields() {
-    const pm = new Promise((resolve, reject) => {
-      this.jiraRequestManager.requestData(jiraHost+jiraApi.getFields.api+'?search=create',
-        jiraApi.getFields.type, 
         null, 
         resolve, 
         reject)
@@ -434,6 +450,21 @@ class FormModel {
     })
     return pm;
   }
+
+  uploadAttachment(file, issueId) {
+    const pm = new Promise((resolve, reject) => {
+      var formData = new FormData();
+      formData.append("file", file, file.name);
+      let request = jiraHost+jiraApi.addIssueAttachment.api;
+      request = request.replace("\{issueIdOrKey\}", issueId)
+      this.jiraRequestManager.requestDataWithXSRF(request, 
+        jiraApi.addIssueAttachment.type, 
+        formData,
+        resolve, 
+        reject)
+    })
+    return pm;
+  }
 }
 
 
@@ -462,12 +493,16 @@ chrome.storage.local.get(['project', 'issueType', 'components', 'resumeType', 'r
     if (message.status) {
       console.log(message.data);
       sendResponse("thank you!")
-      formView.updateDescription("请从此地址下载简历： "+message.data)
-      updateDownloadStatus(true)
+      chrome.downloads.download({url: message.data,saveAs: false}, (id)=>{
+        updateDownloadStatus(true)
+      })
+//      formView.updateDescription("请从此地址下载简历： "+message.data)
     } else {
       console.log("fail to get resume url.")
       sendResponse("sad!")
       updateDownloadStatus(false)
     }
   })
+
+  updateDownloadStatus(true)
 });
