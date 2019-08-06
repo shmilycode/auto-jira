@@ -1,10 +1,11 @@
 let jiraApi = {
   project: {api: "/rest/api/2/project", type: "GET"},
   issuetype: {api: "/rest/api/2/issuetype", type: "GET"},
-  components: {api: "/rest/api/2/component/", type: "GET"},
+  components: {api: "/rest/api/2/project/{projectIdOrKey}/components", type: "GET"},
   issue: {api: "/rest/api/2/issue/", type: "POST"},
   customFieldOption: {api: "/rest/api/2/customFieldOption/", type: "GET"},
-  getFields: {api: "/rest/api/2/field", type: "GET"}
+  getFields: {api: "/rest/api/2/field", type: "GET"},
+  findUsers: {api: "/rest/api/2/user/assignable/multiProjectSearch", type: "GET"}
 }
 
 let jiraHost = "https://jira.cvte.com"
@@ -32,23 +33,99 @@ class JiraRequestManager {
 }
 
 class FormView {
-  constructor() {
+  constructor(initData) {
+    if ('project' in initData)
+      this.initForm(initData)
+
     this.observers = new Array()
     $('#createIssue').on('click', (event)=>{
-      componentsArray = getComponentsArray();
-      let pars = {project: $('#project'), issueType: $('#issueType'),
-                  summary: $('#summary'), components: componentsArray,
-                  resumeType: $('#resumeType'), resumeSource: $('#resumeSource'),
-                  assignee: $('#assignee')}
+      if (!this.CheckInputs())
+        return false
+      this.enableCreateIssue(false)
+      this.showLoading(true)
+      let componentsArray = []
+      componentsArray.push($('#components').val())
+      let pars = {project: $('#project').val(), issueType: $('#issueType').val(),
+                  summary: $('#summary').val(), components: componentsArray,
+                  resumeType: $('#resumeType').val(), resumeSource: $('#resumeSource').val(),
+                  assignee: $('#assignee').val(), description: $('#description').val()}
       this.observers.forEach((item, index, array) =>{
-        item.onCreateIssueClick(pars);
+        item.onCreateIssueClick(pars)
+          .then((result)=>{
+            this.showLoading(false)
+            this.enableCreateIssue(true)
+            $("#createIssue").attr("disabled", "disabled")
+            $('#alertText').html("创建成功")
+          })
+          .catch((error)=>{
+            this.showLoading(false)
+            this.enableCreateIssue(true)
+            console.log("Create jira task failed, "+error)
+            $('#alertText').html("创建失败，请修改后重试")
+          })
       })
+      return false
     })
 
+    $('#project').blur(()=>{
+      if ($('#project').val())
+        this.notifyProjectChanged($('#project').val())
+    })
+  }
+
+  initForm(data) {
+    $('#project').val(data.project)
+    $('#issueType').val(data.issueType)
+    $('#components').val(data.components[0])
+    $('#resumeType').val(data.resumeType)
+    $('#resumeSource').val(data.resumeSource)
+    $('#assignee').val(data.assignee)
+  }
+
+  show() {
+    $('#mainForm').removeAttr("hidden")
+  }
+
+  hide() {
+    $('#mainForm').attr("hidden", "hidden")
+  }
+
+  CheckInputs() {
+    let elem = ['#project', '#summary', '#assignee', '#issueType', '#components', '#resumeType', '#resumeSource'];
+    for (let i = 0; i < elem.length; i++) {
+      if (!$(elem[i]).val()) {
+        $(elem[i]).addClass('is-invalid')
+        return false;
+      }
+      else {
+        $(elem[i]).removeClass('is-invalid')
+      }
+    }
+    return true;
+  }
+
+  enableCreateIssue(flag) {
+    if(flag)
+      $('#createIssue').removeAttr("hidden");
+    else
+      $('#createIssue').attr("hidden","hidden");
+  }
+
+  showLoading(flag) {
+    if(flag)
+      $('#loading').removeAttr("hidden");
+    else
+      $('#loading').attr("hidden","hidden");
   }
 
   addListener(observer) {
     this.observers.push(observer)
+  }
+
+  notifyProjectChanged(projectName){
+    this.observers.forEach((item, index, array)=>{
+      item.onProjectChanged(projectName)
+    })
   }
 
   updateProjectList(projectList) {
@@ -60,9 +137,7 @@ class FormView {
     $('.project-list').on('click', (event)=>{
       let projectName = event.target.innerText
       $('#project').val(projectName)
-      this.observers.forEach((item, index, array)=>{
-        item.onProjectChangged(projectName)
-      })
+      this.notifyProjectChanged(projectName)
     })
   }
 
@@ -72,6 +147,11 @@ class FormView {
     for(let index = 0; index < len; index++){
       $('#issueTypeList').append('<a class="dropdown-item issue-type-list">'+issueTypeList[index].name+'</a>');
     }
+    $('.issue-type-list').on('click', (event)=>{
+      let issueType = event.target.innerText
+      $('#issueType').val(issueType)
+    })
+
   }
 
   updateComponentsList(componentsList) {
@@ -80,6 +160,11 @@ class FormView {
     for(let index = 0; index < len; index++){
       $('#componentsList').append('<a class="dropdown-item components-list">'+componentsList[index].name+'</a>');
     }
+    $('.components-list').on('click', (event)=>{
+      let componentName = event.target.innerText
+      $('#components').val(componentName)
+    })
+
   }
 
   updateResumeTypeList(resumeTypeList) {
@@ -88,6 +173,11 @@ class FormView {
     for(let index = 0; index < len; index++){
       $('#resumeTypeList').append('<a class="dropdown-item resume-type-list">'+resumeTypeList[index].name+'</a>');
     }
+    $('.resume-type-list').on('click', (event)=>{
+      let resumeType = event.target.innerText
+      $('#resumeType').val(resumeType)
+    })
+
   }
 
   updateResumeSourceList(resumeSourceList) {
@@ -96,6 +186,26 @@ class FormView {
     for(let index = 0; index < len; index++){
       $('#resumeSourceList').append('<a class="dropdown-item resume-source-list">'+resumeSourceList[index].name+'</a>');
     }
+    $('.resume-source-list').on('click', (event)=>{
+      let resumeSource = event.target.innerText
+      $('#resumeSource').val(resumeSource)
+    })
+  }
+
+  updateAssigneeList(users) {
+    let len = users.length
+    $('#assigneeList').empty();
+    for(let index = 0; index < len; index++){
+      $('#assigneeList').append('<a class="dropdown-item assignee-list">'+users[index].displayName+'</a>');
+    }
+    $('.assignee-list').on('click', (event)=>{
+      let assignee = event.target.innerText
+      $('#assignee').val(assignee)
+    })
+  }
+
+  updateDescription(message) {
+    $('#description').val(message)
   }
 }
 
@@ -103,6 +213,8 @@ class FormController {
   constructor(formModel, formView) {
     this.formModel = formModel
     this.formView = formView
+    this.componentsList = []
+    this.assigneeList = []
     this.formModel.getProjects()
       .then((data)=>{
         this.projectList = data
@@ -137,56 +249,93 @@ class FormController {
     }
   }
 
-  getComponentsIdArray(componentName) {
-    this.componentsList.forEach((item, index, array)=>{
-      if (item.name == componentName)
-        return item.id
-    })
+
+  getComponentsIdArray(componentNames) {
+    let components=[]
+    let count = componentNames.length
+    for(let index = 0; index < count; ++index) {
+      let component = this.getFromListByName(this.componentsList, componentNames[index])
+      components.push({"id": component.id})
+    }
+    return components
   }
 
-  onProjectChangged(projectName) {
+  getUserName(name) {
+    let count = this.assigneeList.length
+    for(let index = 0; index < count; ++index) {
+      let assignee = this.assigneeList[index]
+      if (assignee.displayName == name || 
+           assignee.name == name)
+        return assignee 
+    }
+  }
+
+async  onProjectChanged(projectName) {
     //update components
     let projectElem = this.getFromListByName(this.projectList, projectName)
-    this.formModel.getComponents(projectElem.id)
-      .then((data)=>{
-        this.componentsList = data
-        this.formView.updateComponentsList(data)
-      })
+    this.formView.enableCreateIssue(false)
+    this.formView.showLoading(true)
+    let data = await this.formModel.getComponents(projectElem.id)
+    this.componentsList = data
+    this.formView.updateComponentsList(data)
+    
+    data = await this.formModel.getUsers(projectElem.key)
+    this.assigneeList = data
+    this.formView.updateAssigneeList(data)
+
+    this.formView.showLoading(false)
+    this.formView.enableCreateIssue(true)
   }
 
-  onCreateIssueClick(pars){
-    projectKey = getFromListByName(this.projectList, pars.project).key
-    issueTypeId = getFromListByName(this.issueTypeList, pars.issueType).id
-    componentsIdArray = getComponentsIdArray(pars.components)
-    resumeTypeId = getFromListByName(this.resumeTypeList, pars.resumeType).id
-    resumeSourceId = getFromListByName(this.resumeSourceList, pars.resumeSource).id
-    let requestData = {
-      "fields":{
-        "project":
-        {
-          "key": proejectKey
-        },
-        "summary": pars.summary,
-        "issuetype": {
-          "id": issueTypeId
-        },
-        "assignee": {
-          "name": pars.assignee
-        },
-        "components": componentsIdArray,
-        "customfield_13206": {
-          "id": resumeTypeId
-        },
-        "customfield_13207": {
-          "id": resumeSourceId
-        }
+async onCreateIssueClick(pars){
+  let project = this.getFromListByName(this.projectList, pars.project)
+  let projectKey = project.key
+  let issueTypeId = this.getFromListByName(this.issueTypeList, pars.issueType).id
+  if (this.componentsList.length == 0) {
+    let data = await this.formModel.getComponents(project.id)
+    this.componentsList = data
+    this.formView.updateComponentsList(data)
+  }
+  let componentsIdArray = this.getComponentsIdArray(pars.components)
+  let resumeTypeId = this.getFromListByName(this.resumeTypeList, pars.resumeType).id
+  let resumeSourceId = this.getFromListByName(this.resumeSourceList, pars.resumeSource).id
+  if (this.assigneeList.length == 0) {
+    let data = await this.formModel.getUsers(projectKey)
+    this.assigneeList = data
+    this.formView.updateAssigneeList(data)
+  }
+  let assigneeName = this.getUserName(pars.assignee).name
+  let requestData = {
+    "fields":{
+      "project":
+      {
+        "key": projectKey
+      },
+      "summary": pars.summary,
+      "description": pars.description,
+      "issuetype": {
+        "id": issueTypeId
+      },
+      "assignee": {
+        "name": assigneeName
+      },
+      "components": componentsIdArray,
+      "customfield_13206": {
+        "id": resumeTypeId
+      },
+      "customfield_13207": {
+        "id": resumeSourceId
       }
-    };
-    this.formModel.submitCreateIssue(requestData)
-      .then((response)=>{
-      })
-      .catch((error)=>{
-      })
+    }
+  };
+
+  this.storeAllSetting(pars)
+  let response = await this.formModel.submitCreateIssue(requestData)
+  return response
+}
+
+  storeAllSetting(data) {
+    chrome.storage.local.set(data);
   }
 }
 
@@ -219,7 +368,9 @@ class FormModel {
 
   getComponents(projectId) {
     const pm = new Promise((resolve, reject) => {
-      this.jiraRequestManager.requestData(jiraHost+jiraApi.components.api+'id='+projectId, 
+      let request = jiraHost+jiraApi.components.api;
+      request = request.replace("\{projectIdOrKey\}", projectId)
+      this.jiraRequestManager.requestData(request, 
         jiraApi.components.type, 
         null, 
         resolve, 
@@ -262,11 +413,22 @@ class FormModel {
     return pm;
   }
 
+  getUsers(projectKey) {
+    const pm = new Promise((resolve, reject) => {
+      this.jiraRequestManager.requestData(jiraHost+jiraApi.findUsers.api+'?projectKeys='+projectKey+'&maxResults=1000',
+        jiraApi.findUsers.type, 
+        null, 
+        resolve, 
+        reject)
+    })
+    return pm;
+  }
+
   submitCreateIssue(data) {
     const pm = new Promise((resolve, reject) => {
       this.jiraRequestManager.requestData(jiraHost+jiraApi.issue.api, 
         jiraApi.issue.type, 
-        data,
+        JSON.stringify(data),
         resolve, 
         reject)
     })
@@ -274,7 +436,38 @@ class FormModel {
   }
 }
 
+
 let formModel = new FormModel()
-let formView = new FormView()
-let formController = new FormController(formModel, formView)
-formView.addListener(formController)
+chrome.storage.local.get(['project', 'issueType', 'components', 'resumeType', 'resumeSource', 'assignee'], (result)=>{
+  let formView = new FormView(result)
+  let formController = new FormController(formModel, formView)
+  formView.addListener(formController)
+
+  chrome.runtime.sendMessage("download", (response)=>{
+    console.log(response)
+  })
+
+
+  function updateDownloadStatus(status) {
+    if(status) {
+      $('#downloading').attr("hidden", "hidden")
+      formView.show()
+    } else {
+      $('#downloadingButton').attr("hidden", "hidden")
+      $('#downloadFailedButton').removeAttr("hidden")
+    }
+  }
+
+  chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    if (message.status) {
+      console.log(message.data);
+      sendResponse("thank you!")
+      formView.updateDescription("请从此地址下载简历： "+message.data)
+      updateDownloadStatus(true)
+    } else {
+      console.log("fail to get resume url.")
+      sendResponse("sad!")
+      updateDownloadStatus(false)
+    }
+  })
+});

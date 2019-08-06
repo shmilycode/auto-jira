@@ -16,7 +16,12 @@
     "webRequest",
     "webRequestBlocking",
     "storage",
-    "https://jira.cvte.com/*"
+    "downloads",
+    "downloads.shelf",
+    "storage",
+    "tabs",
+    "https://jira.cvte.com/*",
+    "https://www.zhipin.com/*"
   ],
 
   "browser_action": {
@@ -26,13 +31,13 @@
 
   "author": "walle",
   "background": {
-    "scripts": ["./jquery/jquery-3.2.0.min.js", "./js/eventPage.js"]
+    "scripts": ["./jquery/jquery-3.2.0.min.js", "./js/background.js"]
   },
 
   "content_scripts": [
   {
     "matches": ["https://*/*"],
-    "js": ["./jquery/jquery-3.2.0.min.js", "./js/autorun.js"]
+    "js": ["./jquery/jquery-3.2.0.min.js", "./js/content.js"]
   }
   ]
 }
