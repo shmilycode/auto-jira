@@ -36,8 +36,9 @@ class JiraRequestManager {
            timeout: 1000,
            url: api,
            type: type,
+           processData: false,
+           contentType: false,
       beforeSend: function(xhr){
-        xhr.setRequestHeader("Content-Type", "application/json");
         xhr.setRequestHeader("X-Atlassian-Token", "no-check");
       },
       data: data,
@@ -98,7 +99,6 @@ class FormView {
     $(".custom-file-input").on("change", function() {
       var fileName = $(this).val().split("\\").pop();
       $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
-//      this.CheckInputs();
     });
   }
 
@@ -120,7 +120,7 @@ class FormView {
   }
 
   CheckInputs() {
-    let elem = ['#project', '#assignee', '#issueType', '#components', '#resumeType', '#resumeSource'];
+    let elem = ['#project', '#inputFile', '#summary', '#assignee', '#issueType', '#components', '#resumeType', '#resumeSource'];
     for (let i = 0; i < elem.length; i++) {
       if (!$(elem[i]).val()) {
         $(elem[i]).addClass('is-invalid')
@@ -356,8 +356,8 @@ async onCreateIssueClick(pars){
   };
 
   this.storeAllSetting(pars)
-//  let issue = await this.formModel.submitCreateIssue(requestData)
-  let response = await this.formModel.uploadAttachment(attachment, "SWZP-5999")
+  let issue = await this.formModel.submitCreateIssue(requestData)
+  let response = await this.formModel.uploadAttachment(attachment, issue.id)
   return response
 }
 
@@ -503,6 +503,4 @@ chrome.storage.local.get(['project', 'issueType', 'components', 'resumeType', 'r
       updateDownloadStatus(false)
     }
   })
-
-  updateDownloadStatus(true)
 });
