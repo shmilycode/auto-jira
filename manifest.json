@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "jira任务创建",
-  "version": "0.1.0",
+  "version": "0.1.1",
 
   "description": "auto-jira",
 
@@ -19,7 +19,7 @@
     "downloads",
     "downloads.shelf",
     "storage",
-    "tabs",
+    "activeTab",
     "https://jira.cvte.com/*",
     "https://www.zhipin.com/*"
   ],
